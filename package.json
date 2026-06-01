@@ -1,6 +1,6 @@
 {
   "name": "vibe-ui",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": false,
   "description": "Local-first DESIGN.md workflow skill for AI UI generation and design consistency checks.",
   "license": "MIT",

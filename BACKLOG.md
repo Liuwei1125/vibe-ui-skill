@@ -24,7 +24,7 @@ Tighten release metadata before the first public GitHub release.
 
 Acceptance notes:
 - Add screenshots or short terminal captures for README usage examples.
-- Add GitHub Release body text for `v1.0.0`.
+- Add reusable GitHub Release body text for future `vX.Y.Z` updates.
 - Confirm repository topics, description, and homepage URL.
 - Confirm generated zip artifacts are attached only to GitHub Releases, not committed.
 

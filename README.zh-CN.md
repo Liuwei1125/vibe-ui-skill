@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="版本 1.0.0" src="https://img.shields.io/badge/version-1.0.0-2563eb?style=for-the-badge">
+  <img alt="版本 1.0.1" src="https://img.shields.io/badge/version-1.0.1-2563eb?style=for-the-badge">
   <img alt="测试通过" src="https://img.shields.io/badge/tests-passing-22c55e?style=for-the-badge">
   <img alt="Node.js" src="https://img.shields.io/badge/runtime-Node.js-475569?style=for-the-badge">
   <img alt="本地优先" src="https://img.shields.io/badge/local--first-DESIGN.md-7c3aed?style=for-the-badge">
@@ -120,6 +120,17 @@ node scripts/publish-kit.mjs --platform all --package offline-full --check
 - `minimal`：核心 Skill 文件、registry、CLI、prompts、icon 和 Vibe Gate watchlist。
 - `standard`：在 `minimal` 基础上加入 attribution、模板配方和精选源设计文件。
 - `offline-full`：在 `standard` 基础上加入 150 个系统的离线资源包。
+
+## 市场更新
+
+更新到 Skill 市场时，建议先发布新的 GitHub tag 和 Release，再把推荐包上传到市场表单。
+
+1. 更新 `package.json`、`registry.json` 和 `CHANGELOG.md` 到新版本。
+2. 运行 `npm run release:check`、`npm run release:dry-run`、`npm run release:smoke` 和 `npm run release:zip`。
+3. 推送 `main`，创建新的 `vX.Y.Z` tag，并在 GitHub Release 中上传三个 zip。
+4. 默认上传 `vibe-ui-standard-skill.zip` 到市场，除非平台明确要求最小包。
+5. 只有市场或审核方需要完整离线 150 系统资源时，才上传 `vibe-ui-offline-full-skill.zip`。
+6. 市场更新说明直接复制 `CHANGELOG.md` 中对应版本的摘要。
 
 ## 仓库说明
 

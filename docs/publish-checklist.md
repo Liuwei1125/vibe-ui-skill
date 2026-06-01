@@ -39,6 +39,14 @@ npm run release:zip
 - [x] `standard`: minimal plus attribution, template recipes, and curated source design files.
 - [x] `offline-full`: standard plus the 150-system upstream offline bundle.
 
+## Marketplace Update
+
+- [ ] Default upload: `dist/publish/vibe-ui-standard-skill.zip`.
+- [ ] Small runtime upload: `dist/publish/vibe-ui-minimal-skill.zip`.
+- [ ] Full offline upload: `dist/publish/vibe-ui-offline-full-skill.zip`.
+- [ ] Version field matches `package.json`.
+- [ ] Update notes are copied from the matching `CHANGELOG.md` section.
+
 ## Safety Checks
 
 - [ ] No `.DS_Store` files.

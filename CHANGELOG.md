@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.1 - 2026-06-01
+
+### Added
+
+- Marketplace update guidance in English and Chinese README files.
+- Release checklist wording for versioned tags and marketplace upload package selection.
+
+### Changed
+
+- Bumped package and registry metadata to `1.0.1`.
+- Clarified that `vibe-ui-standard-skill.zip` is the recommended default marketplace upload, while `offline-full` is for full offline bundle requests.
+
 ## 1.0.0 - 2026-06-01
 
 ### Added

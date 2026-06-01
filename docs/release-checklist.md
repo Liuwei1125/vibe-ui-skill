@@ -29,9 +29,17 @@
 ## GitHub
 
 - [ ] Push `main`.
-- [ ] Create and push a `v1.0.0` tag.
+- [ ] Create and push a `vX.Y.Z` tag that matches `package.json`.
 - [ ] Draft GitHub Release.
 - [ ] Attach package zip files only through GitHub Releases if needed.
+
+## Marketplace
+
+- [ ] Upload `dist/publish/vibe-ui-standard-skill.zip` as the default marketplace package.
+- [ ] Upload `dist/publish/vibe-ui-minimal-skill.zip` only when the platform requires the smallest runtime package.
+- [ ] Upload `dist/publish/vibe-ui-offline-full-skill.zip` only when the platform or reviewer wants the full offline source bundle.
+- [ ] Copy the matching `CHANGELOG.md` version notes into the marketplace update notes.
+- [ ] Confirm the marketplace version matches `package.json`.
 
 ## Naming And Attribution
 

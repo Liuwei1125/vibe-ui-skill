@@ -1,4 +1,15 @@
-# Vibe UI v1.0 Release Notes
+# Vibe UI Release Notes
+
+## v1.0.1 Update
+
+v1.0.1 is a marketplace-update documentation release. Runtime behavior is unchanged from v1.0.0.
+
+- Added English and Chinese marketplace update instructions.
+- Clarified default marketplace package selection: use `vibe-ui-standard-skill.zip` unless a platform requires a smaller package or the full offline bundle.
+- Updated release checklist wording to use the current `vX.Y.Z` tag rather than a fixed initial tag.
+- Bumped package and registry metadata to `1.0.1`.
+
+## v1.0.0 Release Notes
 
 ## Package Scope
 

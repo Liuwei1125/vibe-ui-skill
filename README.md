@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-2563eb?style=for-the-badge">
+  <img alt="Version 1.0.1" src="https://img.shields.io/badge/version-1.0.1-2563eb?style=for-the-badge">
   <img alt="Tests passing" src="https://img.shields.io/badge/tests-passing-22c55e?style=for-the-badge">
   <img alt="Node.js" src="https://img.shields.io/badge/runtime-Node.js-475569?style=for-the-badge">
   <img alt="Local first" src="https://img.shields.io/badge/local--first-DESIGN.md-7c3aed?style=for-the-badge">
@@ -120,6 +120,17 @@ node scripts/publish-kit.mjs --platform all --package offline-full --check
 - `minimal`: core skill files, registry, CLI, prompts, icon, and Vibe Gate watchlist.
 - `standard`: `minimal` plus attribution, template recipes, and curated source design files.
 - `offline-full`: `standard` plus the 150-system upstream offline bundle.
+
+## Marketplace Updates
+
+For a marketplace update, publish a new GitHub tag and Release, then upload the recommended package to the marketplace form.
+
+1. Update `package.json`, `registry.json`, and `CHANGELOG.md` to the new version.
+2. Run `npm run release:check`, `npm run release:dry-run`, `npm run release:smoke`, and `npm run release:zip`.
+3. Push `main`, create a new `vX.Y.Z` tag, and create a GitHub Release with the three zip artifacts.
+4. Use `vibe-ui-standard-skill.zip` as the default marketplace upload unless the platform requires the smallest package.
+5. Use `vibe-ui-offline-full-skill.zip` only when the marketplace or reviewer wants the full offline 150-system bundle.
+6. Copy the version and change summary from `CHANGELOG.md` into the marketplace update notes.
 
 ## Repository Notes
 
