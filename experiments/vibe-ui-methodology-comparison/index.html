@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vibe UI Methodology Comparison</title>
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --panel: #12141b;
+      --line: rgba(255,255,255,.1);
+      --text: #f6f7fb;
+      --muted: #a7adbb;
+      --accent: #8ea0ff;
+      --green: #39c277;
+      --warn: #f0c46a;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: var(--bg); }
+    header { max-width: 1440px; margin: 0 auto; padding: 28px 24px 18px; }
+    h1 { margin: 0 0 10px; font-size: clamp(30px, 5vw, 54px); line-height: 1.02; letter-spacing: -.04em; }
+    .lead { max-width: 920px; color: var(--muted); line-height: 1.65; margin: 0; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+    .toolbar a, .toolbar button {
+      color: var(--text);
+      background: #171a24;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 10px 12px;
+      text-decoration: none;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .toolbar button.active { border-color: rgba(142,160,255,.7); background: rgba(142,160,255,.16); }
+    .notes { max-width: 1440px; margin: 0 auto; padding: 0 24px 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .note { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 16px; }
+    .note h2 { margin: 0 0 8px; font-size: 17px; letter-spacing: -.01em; }
+    .note p { margin: 0; color: var(--muted); line-height: 1.55; font-size: 14px; }
+    .note b { color: var(--text); }
+    .frames { max-width: 1440px; margin: 0 auto; padding: 0 24px 28px; display: grid; grid-template-columns: repeat(4, minmax(280px, 1fr)); gap: 14px; }
+    .frame-card { min-width: 0; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: #08090a; }
+    .frame-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 46px; padding: 0 12px; border-bottom: 1px solid var(--line); background: #12141b; }
+    .frame-head strong { font-size: 14px; }
+    .frame-head a { color: var(--accent); font-size: 13px; text-decoration: none; }
+    iframe { display: block; width: 100%; height: 760px; border: 0; background: white; }
+    .single .frames { grid-template-columns: 1fr; }
+    .single .frame-card { display: none; }
+    .single .frame-card.active { display: block; }
+    .single iframe { height: 820px; }
+    .legend { max-width: 1440px; margin: 0 auto; padding: 0 24px 30px; }
+    .legend-inner { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 18px; }
+    .legend h2 { margin: 0 0 12px; font-size: 18px; }
+    .matrix { display: grid; grid-template-columns: 1.05fr repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .cell { background: #12141b; padding: 12px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+    .cell.head { color: var(--text); font-weight: 750; }
+    .ok { color: var(--green); }
+    .warn { color: var(--warn); }
+    @media (max-width: 1120px) {
+      .frames, .notes { grid-template-columns: 1fr; }
+      iframe { height: 720px; }
+      .matrix { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Vibe UI 方法论真实效果对比</h1>
+    <p class="lead">同一个任务：设计一个介绍 Vibe UI skill 的 landing page。四版共享同一份产品信息，只改变生成方法论：不用 skill 的裸模型直出、最开始版、外部资源增强版、再叠加 Vibe Gate 质量门版。</p>
+    <div class="toolbar" aria-label="View controls">
+      <button class="active" data-mode="all">四列对比</button>
+      <button data-mode="v-1">只看 v-1</button>
+      <button data-mode="v0">只看 v0</button>
+      <button data-mode="v1">只看 v1</button>
+      <button data-mode="v2">只看 v2</button>
+      <a href="notes.md">查看 notes.md</a>
+    </div>
+  </header>
+
+  <section class="notes">
+    <article class="note">
+      <h2>v-1 · 裸模型直出</h2>
+      <p><b>方法：</b>只给自然语言 brief，不使用 Vibe UI skill、DESIGN.md、模板 recipe 或检查器。看点是默认模型审美和常见 AI landing 风险。</p>
+    </article>
+    <article class="note">
+      <h2>v0 · 最开始版</h2>
+      <p><b>方法：</b>18 个精选风格 + 通用 landing prompt + 基础 check。看点是“能生成漂亮页”，但容易有 AI landing 常见气质。</p>
+    </article>
+    <article class="note">
+      <h2>v1 · 资源增强版</h2>
+      <p><b>方法：</b>使用 <code>open-design:linear-app</code> 和 template recipe。看点是更明确的设计 token、source provenance 和结构。</p>
+    </article>
+    <article class="note">
+      <h2>v2 · Vibe Gate 版</h2>
+      <p><b>方法：</b>在资源增强基础上加入 invariants、materials status、anti-pattern 和 P0 自检。看点是可交付性更强，且不把借鉴来源命名成自身能力。</p>
+    </article>
+  </section>
+
+  <main class="frames">
+    <article class="frame-card active" data-version="v-1">
+      <div class="frame-head"><strong>v-1-direct-model.html</strong><a href="v-1-direct-model.html" target="_blank">open</a></div>
+      <iframe src="v-1-direct-model.html" title="Direct model baseline"></iframe>
+    </article>
+    <article class="frame-card active" data-version="v0">
+      <div class="frame-head"><strong>v0-original.html</strong><a href="v0-original.html" target="_blank">open</a></div>
+      <iframe src="v0-original.html" title="Vibe UI original version"></iframe>
+    </article>
+    <article class="frame-card" data-version="v1">
+      <div class="frame-head"><strong>v1-resource-backed.html</strong><a href="v1-resource-backed.html" target="_blank">open</a></div>
+      <iframe src="v1-resource-backed.html" title="Vibe UI resource-backed version"></iframe>
+    </article>
+    <article class="frame-card" data-version="v2">
+      <div class="frame-head"><strong>v2-vibe-gate.html</strong><a href="v2-vibe-gate.html" target="_blank">open</a></div>
+      <iframe src="v2-vibe-gate.html" title="Vibe UI Vibe Gate version"></iframe>
+    </article>
+  </main>
+
+  <section class="legend">
+    <div class="legend-inner">
+      <h2>观察维度</h2>
+      <div class="matrix">
+        <div class="cell head">维度</div>
+        <div class="cell head">v-1 Direct Model</div>
+        <div class="cell head">v0 Original</div>
+        <div class="cell head">v1 Resource-Backed</div>
+        <div class="cell head">v2 Vibe Gate</div>
+        <div class="cell head">视觉来源</div>
+        <div class="cell">无明确来源，依赖模型默认“现代 AI SaaS”审美。</div>
+        <div class="cell">精选 curated style，容易走通用 SaaS 视觉。</div>
+        <div class="cell"><span class="ok">明确</span>：Linear resource tokens。</div>
+        <div class="cell"><span class="ok">明确</span>：同 v1，但加不变量约束。</div>
+        <div class="cell head">结构完整度</div>
+        <div class="cell">Hero + generic feature cards + CTA，结构像常见 landing 模板。</div>
+        <div class="cell">Hero + cards + CTA，够用但偏模板化。</div>
+        <div class="cell">有 source terminal、metrics、recipe 说明。</div>
+        <div class="cell">有 contract、materials、P0 checklist，评审线索更完整。</div>
+        <div class="cell head">AI 味风险</div>
+        <div class="cell"><span class="warn">最高</span>：emoji、玻璃、彩色渐变、10x/99.9% 等无证据指标。</div>
+        <div class="cell"><span class="warn">较高</span>：渐变、宽泛 claim、泛卡片。</div>
+        <div class="cell">中等：视觉更具体，但仍主要是页面生成。</div>
+        <div class="cell"><span class="ok">更低</span>：显式 anti-pattern 和 evidence。</div>
+        <div class="cell head">可交付性</div>
+        <div class="cell">像概念稿，需要大量清理和事实校对。</div>
+        <div class="cell">像 demo。</div>
+        <div class="cell">像有系统来源的 demo。</div>
+        <div class="cell">像可以进入审查/实现流程的方案。</div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const buttons = [...document.querySelectorAll('[data-mode]')];
+    const cards = [...document.querySelectorAll('[data-version]')];
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const mode = button.dataset.mode;
+        buttons.forEach((item) => item.classList.toggle('active', item === button));
+        document.body.classList.toggle('single', mode !== 'all');
+        cards.forEach((card) => {
+          const visible = mode === 'all' || card.dataset.version === mode;
+          card.classList.toggle('active', visible);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

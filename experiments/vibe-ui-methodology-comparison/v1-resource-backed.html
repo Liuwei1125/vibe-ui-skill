@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vibe UI - Resource-Backed Method</title>
+  <style>
+    :root {
+      --canvas: #08090a;
+      --panel: #0f1011;
+      --panel-2: #191a1b;
+      --line: rgba(255,255,255,.08);
+      --line-soft: rgba(255,255,255,.05);
+      --text: #f7f8f8;
+      --muted: #d0d6e0;
+      --subtle: #8a8f98;
+      --brand: #5e6ad2;
+      --accent: #7170ff;
+      --success: #27a644;
+      font-family: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: radial-gradient(circle at 50% -10%, rgba(94,106,210,.22), transparent 34%), var(--canvas); }
+    .shell { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    .nav { height: 64px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line-soft); }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 510; }
+    .brand img { width: 32px; height: 32px; border-radius: 7px; box-shadow: inset 0 0 0 1px var(--line); }
+    .nav-links { display: flex; gap: 22px; color: var(--subtle); font-size: 14px; }
+    .pill { border: 1px solid var(--line); background: rgba(255,255,255,.03); border-radius: 999px; color: var(--muted); padding: 7px 11px; font-size: 13px; }
+    .hero { display: grid; grid-template-columns: 1.08fr .92fr; gap: 42px; align-items: center; min-height: 690px; padding: 54px 0; }
+    .eyebrow { color: var(--accent); font-size: 13px; font-weight: 510; letter-spacing: .02em; }
+    h1 { margin: 16px 0; font-size: clamp(48px, 8vw, 88px); line-height: .95; letter-spacing: -0.055em; font-weight: 510; }
+    .lead { color: var(--muted); font-size: 19px; line-height: 1.68; max-width: 620px; font-weight: 300; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .btn { border: 1px solid rgba(255,255,255,.1); border-radius: 9px; padding: 13px 18px; color: white; background: var(--brand); font-weight: 510; box-shadow: inset 0 1px rgba(255,255,255,.12), 0 12px 28px rgba(94,106,210,.2); }
+    .btn.secondary { background: rgba(255,255,255,.03); color: var(--muted); box-shadow: inset 0 1px rgba(255,255,255,.04); }
+    .terminal {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 24px 80px rgba(0,0,0,.38), inset 0 1px rgba(255,255,255,.05);
+    }
+    .terminal-head { display: flex; align-items: center; justify-content: space-between; color: var(--subtle); font-size: 12px; padding: 0 0 14px; border-bottom: 1px solid var(--line-soft); }
+    .cmd { font-family: "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--muted); line-height: 1.75; padding-top: 16px; }
+    .cmd b { color: var(--accent); font-weight: 500; }
+    .cmd .ok { color: var(--success); }
+    .system-card { margin-top: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 18px; }
+    .swatches { display: flex; gap: 8px; margin: 14px 0; }
+    .swatches span { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); }
+    .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 22px; }
+    .metric { border: 1px solid var(--line-soft); background: rgba(255,255,255,.025); border-radius: 14px; padding: 16px; }
+    .metric strong { display: block; font-size: 27px; font-weight: 510; letter-spacing: -.04em; }
+    .metric span { color: var(--subtle); font-size: 13px; }
+    .section { padding: 18px 0 70px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .card { border: 1px solid var(--line); background: rgba(15,16,17,.82); border-radius: 16px; padding: 22px; }
+    .card h3 { margin: 0 0 10px; font-size: 19px; font-weight: 510; letter-spacing: -.02em; }
+    .card p { margin: 0; color: var(--subtle); line-height: 1.62; }
+    .note { margin-top: 18px; border: 1px solid var(--line); border-radius: 16px; background: #0f1011; padding: 22px; color: var(--muted); line-height: 1.65; }
+    code { color: #c7d2fe; background: rgba(113,112,255,.12); border: 1px solid rgba(113,112,255,.2); border-radius: 7px; padding: 3px 7px; }
+    @media (max-width: 880px) {
+      .hero, .grid, .meta { grid-template-columns: 1fr; min-height: auto; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand"><img src="../../icon.png" alt="Vibe UI icon">Vibe UI</div>
+      <div class="nav-links"><span>Resources</span><span>Recipes</span><span>Reports</span></div>
+      <div class="pill">open-design:linear-app</div>
+    </nav>
+    <main>
+      <section class="hero" data-od-id="hero">
+        <div>
+          <div class="eyebrow">Resource-backed workflow</div>
+          <h1>One workflow. 150 local design systems.</h1>
+          <p class="lead">Vibe UI now applies namespaced external design resources, template recipes, and provenance metadata so coding agents can move from vague taste to a concrete DESIGN.md contract.</p>
+          <div class="actions">
+            <button class="btn">Use resource library</button>
+            <button class="btn secondary">Browse systems</button>
+          </div>
+          <div class="meta" aria-label="Vibe UI capability metrics">
+            <div class="metric"><strong>150</strong><span>local systems</span></div>
+            <div class="metric"><strong>18</strong><span>curated defaults</span></div>
+            <div class="metric"><strong>3</strong><span>package modes</span></div>
+          </div>
+        </div>
+        <aside class="terminal" data-od-id="source-terminal">
+          <div class="terminal-head"><span>Vibe UI CLI</span><span>offline-full</span></div>
+          <div class="cmd">
+            <div><b>$</b> node scripts/design.mjs list --source open-design</div>
+            <div class="ok">open-design:linear-app · Productivity & SaaS</div>
+            <div><b>$</b> node scripts/design.mjs use open-design:linear-app</div>
+            <div class="ok">DESIGN.md + provenance written</div>
+            <div><b>$</b> node scripts/design.mjs generate landing --template open-design:saas-landing</div>
+          </div>
+          <div class="system-card">
+            <strong>Linear-inspired tokens</strong>
+            <div class="swatches">
+              <span style="background:#08090a"></span>
+              <span style="background:#f7f8f8"></span>
+              <span style="background:#5e6ad2"></span>
+              <span style="background:#7170ff"></span>
+              <span style="background:#0f1011"></span>
+              <span style="background:#191a1b"></span>
+            </div>
+            <p style="margin:0;color:var(--subtle);line-height:1.55">Ultra-minimal, precise, dark-mode-native, purple accent.</p>
+          </div>
+        </aside>
+      </section>
+      <section class="section" data-od-id="capabilities">
+        <div class="grid">
+          <article class="card"><h3>Source filtering</h3><p>Search only built-in styles, only external resource styles, or the full catalog with `--source all`.</p></article>
+          <article class="card"><h3>Template recipes</h3><p>Inject required sections and P0 checks without copying a full app template into the skill.</p></article>
+          <article class="card"><h3>Offline provenance</h3><p>Record repo, commit, source path, and attribution in the generated project state.</p></article>
+        </div>
+        <div class="note">
+          <strong>Method signal:</strong> this version feels more specific and system-driven. The visual language is less generic because the page is anchored to a concrete resource-backed system and a real recipe.
+          <br><br><code>node scripts/design.mjs use open-design:linear-app</code>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

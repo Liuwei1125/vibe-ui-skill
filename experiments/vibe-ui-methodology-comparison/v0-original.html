@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vibe UI - Original Method</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --ink: #111827;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --accent: #6366f1;
+      --accent-2: #8b5cf6;
+      --soft: #eef2ff;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--bg); }
+    a { color: inherit; }
+    .shell { max-width: 1160px; margin: 0 auto; padding: 28px; }
+    .nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: 0; }
+    .brand img { width: 34px; height: 34px; border-radius: 8px; }
+    .nav-links { display: flex; gap: 18px; color: var(--muted); font-size: 14px; }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 36px;
+      align-items: center;
+      padding: 70px 0 56px;
+    }
+    .eyebrow { color: var(--accent); font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: .12em; }
+    h1 { margin: 14px 0 16px; font-size: clamp(44px, 7vw, 76px); line-height: .98; letter-spacing: -.045em; }
+    .lead { color: var(--muted); font-size: 20px; line-height: 1.65; max-width: 620px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+    .btn { border: 0; border-radius: 999px; padding: 14px 22px; font-weight: 800; background: var(--accent); color: white; box-shadow: 0 18px 40px rgba(99,102,241,.24); }
+    .btn.secondary { color: var(--ink); background: white; border: 1px solid var(--line); box-shadow: none; }
+    .preview {
+      background: linear-gradient(135deg, #ffffff, #eef2ff 52%, #f5f3ff);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: 0 28px 70px rgba(15, 23, 42, .12);
+    }
+    .window { background: #fff; border-radius: 20px; border: 1px solid var(--line); overflow: hidden; }
+    .bar { height: 42px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
+    .dot:nth-child(1) { background: #fb7185; }
+    .dot:nth-child(2) { background: #fbbf24; }
+    .dot:nth-child(3) { background: #34d399; }
+    .mock { padding: 20px; display: grid; gap: 14px; }
+    .mock-hero { height: 100px; border-radius: 18px; background: radial-gradient(circle at 20% 10%, #c4b5fd, transparent 35%), linear-gradient(135deg, #111827, #4f46e5); }
+    .mock-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .tile { min-height: 88px; border-radius: 16px; background: #f8fafc; border: 1px solid var(--line); padding: 12px; }
+    .tile strong { display: block; margin-bottom: 8px; font-size: 13px; }
+    .tile span { display: block; height: 8px; border-radius: 99px; background: #dbeafe; margin-top: 8px; }
+    .section { padding: 44px 0; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 22px; box-shadow: 0 10px 30px rgba(15,23,42,.06); }
+    .card h3 { margin: 0 0 10px; font-size: 21px; letter-spacing: -.02em; }
+    .card p { margin: 0; color: var(--muted); line-height: 1.6; }
+    .band { margin: 36px 0 0; border-radius: 28px; padding: 32px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; }
+    .band p { color: rgba(255,255,255,.82); max-width: 660px; line-height: 1.65; }
+    code { background: var(--soft); color: #4338ca; border-radius: 7px; padding: 3px 7px; }
+    @media (max-width: 860px) {
+      .hero, .grid { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand"><img src="../../icon.png" alt="Vibe UI icon">Vibe UI</div>
+      <div class="nav-links"><span>Styles</span><span>Prompts</span><span>Checks</span></div>
+    </nav>
+    <main>
+      <section class="hero">
+        <div>
+          <div class="eyebrow">Original Vibe UI</div>
+          <h1>Generate better UI pages with DESIGN.md.</h1>
+          <p class="lead">Pick a curated visual direction, apply a DESIGN.md file, generate a page prompt, and run a lightweight consistency check after the implementation.</p>
+          <div class="actions">
+            <button class="btn">Start with a style</button>
+            <button class="btn secondary">See commands</button>
+          </div>
+        </div>
+        <div class="preview" aria-label="Generated UI preview">
+          <div class="window">
+            <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <div class="mock">
+              <div class="mock-hero"></div>
+              <div class="mock-row">
+                <div class="tile"><strong>Recommend</strong><span></span><span></span></div>
+                <div class="tile"><strong>Generate</strong><span></span><span></span></div>
+                <div class="tile"><strong>Check</strong><span></span><span></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <div class="grid">
+          <article class="card"><h3>Curated styles</h3><p>Start from a small registry of high-confidence inspirations such as Linear, Stripe, Vercel, and Apple.</p></article>
+          <article class="card"><h3>Page prompts</h3><p>Generate landing, dashboard, pricing, docs, login, settings, profile, and extension prompts.</p></article>
+          <article class="card"><h3>Quick checks</h3><p>Catch unsupported gradients, arbitrary colors, heavy shadows, and radius drift before handoff.</p></article>
+        </div>
+        <div class="band">
+          <h2>Method signal</h2>
+          <p>This version has useful workflow scaffolding, but it still feels like a polished generic AI landing page: strong gradient, broad claims, and less evidence of a strict design contract.</p>
+          <code>node scripts/design.mjs use linear</code>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
