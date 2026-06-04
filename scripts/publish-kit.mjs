@@ -59,7 +59,10 @@ async function buildPackagePlan(mode, targetPlatform) {
       vibeGateAntiPatterns: true,
       curatedSourceDesigns: mode !== 'minimal',
       openDesignAttribution: mode !== 'minimal',
+      openDesignTemplateIndex: mode !== 'minimal',
       openDesignTemplateRecipes: mode !== 'minimal',
+      openDesignTemplateSources: mode === 'offline-full',
+      resourcesSyncManifest: mode !== 'minimal',
       openDesignSystems: mode === 'offline-full',
     },
     files,
@@ -84,9 +87,14 @@ async function collectPackageFiles(mode, registry) {
   if (existsSync(join(skillRoot, 'icon.png'))) required.push('icon.png');
   if (mode !== 'minimal') {
     required.push('resource/open-design-attribution.md');
+    required.push('resource/open-design-template-index.json');
     required.push('resource/open-design-template-recipes.json');
+    required.push('resource/resources-sync-manifest.json');
   }
-  if (mode === 'offline-full') required.push('resource/open-design-systems.json');
+  if (mode === 'offline-full') {
+    required.push('resource/open-design-systems.json');
+    required.push('resource/open-design-template-sources.json');
+  }
   if (mode !== 'minimal') {
     for (const design of registry.designs) {
       required.push(join(registry.resourceRoot, design.sourceId, 'DESIGN.md'));
@@ -127,18 +135,25 @@ async function checkPackagePlan(plan) {
 
   if (plan.packageMode === 'minimal') {
     checks.push(namedCheck('Open Design attribution excluded from minimal', !fileSet.has('resource/open-design-attribution.md')));
+    checks.push(namedCheck('Open Design template index excluded from minimal', !fileSet.has('resource/open-design-template-index.json')));
     checks.push(namedCheck('Open Design template recipes excluded from minimal', !fileSet.has('resource/open-design-template-recipes.json')));
+    checks.push(namedCheck('Open Design template sources excluded from minimal', !fileSet.has('resource/open-design-template-sources.json')));
+    checks.push(namedCheck('Resources sync manifest excluded from minimal', !fileSet.has('resource/resources-sync-manifest.json')));
     checks.push(namedCheck('Open Design systems excluded from minimal', !fileSet.has('resource/open-design-systems.json')));
   } else {
     checks.push(namedCheck('Open Design attribution included', fileSet.has('resource/open-design-attribution.md')));
+    checks.push(namedCheck('Open Design template index included', fileSet.has('resource/open-design-template-index.json')));
     checks.push(namedCheck('Open Design template recipes included', fileSet.has('resource/open-design-template-recipes.json')));
+    checks.push(namedCheck('Resources sync manifest included', fileSet.has('resource/resources-sync-manifest.json')));
   }
 
   if (plan.packageMode === 'offline-full') {
     checks.push(namedCheck('Open Design systems included in offline-full', fileSet.has('resource/open-design-systems.json')));
+    checks.push(namedCheck('Open Design template sources included in offline-full', fileSet.has('resource/open-design-template-sources.json')));
     checks.push(namedCheck('Offline-full resource count is 150', plan.counts.openDesignSystems === 150));
   } else {
     checks.push(namedCheck('Open Design systems excluded outside offline-full', !fileSet.has('resource/open-design-systems.json')));
+    checks.push(namedCheck('Open Design template sources excluded outside offline-full', !fileSet.has('resource/open-design-template-sources.json')));
   }
 
   const errors = checks.filter((item) => !item.ok).map((item) => item.name);

@@ -1,17 +1,22 @@
-# Open Design Attribution
+# Third Party Notices
 
-Vibe UI bundles 150 local DESIGN.md resources from Open Design for offline search and application.
+This repository mirrors and distills resources from Open Design.
 
-## Source
+## Open Design
 
-- Project: Open Design
 - Repository: https://github.com/nexu-io/open-design
-- Source path: design-systems/*/DESIGN.md
-- Synced commit: a1f01e6fb7fdc823d71b00568bb9b2fff3b71f08
-- License: Apache-2.0
+- Source commit: 18169ee52ac6f24eef277dba345a9f3a0e4e1b36
+- Commit date: 2026-06-04T09:13:50Z
+- Commit subject: Improve export fidelity contract for editable PPTX and PDF readiness (#3628)
+- Source paths:
+  - design-systems/*/DESIGN.md
+  - design-templates/*
+- Mirrored DESIGN.md systems: 150
+- Mirrored design template directories: 111
+- Upstream license: Apache-2.0
 
-## Upstream Notes
+Mirrored resources are aesthetic references for agentic UI generation. They are not official brand systems and do not grant trademark rights. Do not use them to copy logos, proprietary assets, official claims, or brand identities.
 
-Open Design documents that its bundled design systems include hand-authored starters, 70 imported product systems from VoltAgent/awesome-design-md / getdesign under MIT terms, the kami system adapted from tw93/kami under MIT terms, and 57 design skills from bergside/awesome-design-skills.
+Open Design documents that its bundled design systems include hand-authored starters, imported product systems from VoltAgent/awesome-design-md and getdesign, the kami system adapted from tw93/kami, and design skills from bergside/awesome-design-skills. Keep those upstream provenance notes with any redistributed snapshot.
 
-These resources are aesthetic references for agentic UI generation. They are not official brand design systems, do not grant trademark rights, and should not be used to copy logos, proprietary assets, official claims, or brand identities.
+Vibe UI template recipes in generated/open-design-template-recipes.json are modified/distilled derivative resources intended as execution contracts for Vibe Gate workflows.

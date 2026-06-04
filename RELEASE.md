@@ -1,5 +1,21 @@
 # Vibe UI Release Notes
 
+## v1.1.0 Update
+
+v1.1.0 upgrades Vibe UI from a style-selection and Vibe Gate checker into a fuller local-first UI generation quality loop.
+
+- Added Vibe Gate 2.0 with the `read -> brief-check -> generate -> report -> critique/polish` workflow.
+- Added `node scripts/design.mjs read "<brief>"` for Design Read, audience, buyer anxiety, register, density/variance/motion dials, proof strategy, and section strategy.
+- Added `.vibe-ui/product-context.json` as a lightweight PRODUCT.md-style strategic context.
+- Added read-aware `brief-check` contracts with dials, page-specific preflight, and contextual anti-pattern watchlists.
+- Added `critique <target>` for timestamped critique reports under `.vibe-ui/critique/`.
+- Added `polish <target>` for deterministic Vibe Gate 2.0 repair prompts.
+- Expanded the anti-pattern detector to cover proof failures, fake logo walls, visible scaffold text, repeated grids, typography risks, and accessibility risks.
+- Added built-in style dials and template page preflight metadata.
+- Added the Vibe UI resources mirror flow through `Liuwei1125/vibe-ui-resources`.
+- Added the OpenDesign template index, full template source bundle for offline-full packaging, resource manifest, and 11 distilled Vibe UI template recipes.
+- Added domain-aware template selection so shopping/retail briefs use `vibe:commerce-home` instead of the SaaS landing recipe.
+
 ## v1.0.1 Update
 
 v1.0.1 is a marketplace-update documentation release. Runtime behavior is unchanged from v1.0.0.
@@ -16,8 +32,8 @@ v1.0.1 is a marketplace-update documentation release. Runtime behavior is unchan
 This release publishes Vibe UI as a local-first `DESIGN.md` workflow skill with three package modes:
 
 - `minimal`: core skill files, registry, CLI, prompts, icon, public docs, and Vibe Gate watchlist.
-- `standard`: `minimal` plus upstream attribution, Vibe UI template recipes, and curated source `DESIGN.md` files.
-- `offline-full`: `standard` plus the 150-system upstream offline resource bundle in `resource/open-design-systems.json`.
+- `standard`: `minimal` plus upstream attribution, Vibe UI template index, template recipes, resource manifest, and curated source `DESIGN.md` files.
+- `offline-full`: `standard` plus the 150-system upstream offline resource bundle in `resource/open-design-systems.json` and full template source bundle in `resource/open-design-template-sources.json`.
 
 The repository also keeps `resource/awesome-design-md-main` as a local source bundle for curated built-in styles and future expansion. Runtime commands use styles listed in `registry.json` plus the optional bundled upstream source catalog.
 
@@ -91,6 +107,9 @@ Optional smoke test from any temporary project:
 
 ```bash
 node /absolute/path/to/skills/vibe-ui/scripts/design.mjs use linear
+node /absolute/path/to/skills/vibe-ui/scripts/design.mjs read "AI release governance landing for healthcare compliance teams" --page landing --design linear --template open-design:saas-landing
+node /absolute/path/to/skills/vibe-ui/scripts/design.mjs brief-check landing --design linear --template open-design:saas-landing
+node /absolute/path/to/skills/vibe-ui/scripts/design.mjs generate landing --template open-design:saas-landing
 node /absolute/path/to/skills/vibe-ui/scripts/design.mjs preview --out preview
 node /absolute/path/to/skills/vibe-ui/scripts/design.mjs browse --out browser
 node /absolute/path/to/skills/vibe-ui/scripts/design.mjs like stripe pricing --strength light
@@ -98,10 +117,12 @@ node /absolute/path/to/skills/vibe-ui/scripts/design.mjs generate landing
 node /absolute/path/to/skills/vibe-ui/scripts/design.mjs remix linear feishu "AI collaboration dashboard"
 node /absolute/path/to/skills/vibe-ui/scripts/design.mjs check src/app/page.tsx
 node /absolute/path/to/skills/vibe-ui/scripts/design.mjs report src/app/page.tsx --out DESIGN-REPORT.md
+node /absolute/path/to/skills/vibe-ui/scripts/design.mjs critique src/app/page.tsx
+node /absolute/path/to/skills/vibe-ui/scripts/design.mjs polish src/app/page.tsx
 node /absolute/path/to/skills/vibe-ui/scripts/publish-kit.mjs --platform all --package minimal --check
 ```
 
-The checker reports a score, issues, suggested fixes, patch suggestions, and DESIGN.md token candidates when it detects unsupported gradients, arbitrary colors, oversized radius, or heavy shadows.
+The checker reports a score, issues, Vibe Gate 2.0 synthesis, suggested fixes, patch suggestions, and DESIGN.md token candidates when it detects unsupported gradients, arbitrary colors, oversized radius, weak proof strategy, scaffold leakage, or layout rhythm problems.
 
 Build all package zips with:
 

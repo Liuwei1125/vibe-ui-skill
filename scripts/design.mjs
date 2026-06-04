@@ -9,6 +9,7 @@ const qualityGateName = 'Vibe Gate';
 const registry = JSON.parse(await readFile(join(skillRoot, 'registry.json'), 'utf8'));
 const openDesignResource = await loadJsonIfExists(join(skillRoot, 'resource', 'open-design-systems.json'), null);
 const templateRecipes = await loadJsonIfExists(join(skillRoot, 'resource', 'open-design-template-recipes.json'), { templates: [] });
+const templateIndex = await loadJsonIfExists(join(skillRoot, 'resource', 'open-design-template-index.json'), { templates: [] });
 const uiAntiPatterns = await loadJsonIfExists(join(skillRoot, 'resource', 'ui-anti-patterns.json'), { patterns: [] });
 const antiPatternById = new Map((uiAntiPatterns.patterns || []).map((pattern) => [pattern.id, pattern]));
 const builtInDesigns = registry.designs.map((design) => ({
@@ -72,6 +73,7 @@ const usage = `Usage:
   node scripts/design.mjs list [--source built-in|open-design|all]
   node scripts/design.mjs search <keyword> [--source built-in|open-design|all]
   node scripts/design.mjs recommend <user_goal> [--source built-in|open-design|all]
+  node scripts/design.mjs read <brief> [--page page_type] [--design design_id] [--template template_id] [--source built-in|open-design|all]
   node scripts/design.mjs use <design_id>
   node scripts/design.mjs like <design_id> [page_type] [--strength light|medium|bold]
   node scripts/design.mjs remix <primary_design_id> <secondary_design_id> [goal]
@@ -86,7 +88,9 @@ const usage = `Usage:
   node scripts/design.mjs submit <design_id> <DESIGN.md> [--name display_name]
   node scripts/design.mjs extract-url <url_or_html_file> [--out DESIGN.md]
   node scripts/design.mjs import <figma_or_screenshot_notes> [--kind figma|screenshot] [--out DESIGN.md]
-  node scripts/design.mjs report <file_or_directory> [--out DESIGN-REPORT.md]`;
+  node scripts/design.mjs report <file_or_directory> [--out DESIGN-REPORT.md]
+  node scripts/design.mjs critique <file_or_directory> [--out directory]
+  node scripts/design.mjs polish <file_or_directory>`;
 
 const command = process.argv[2];
 const args = process.argv.slice(3);
@@ -100,6 +104,8 @@ try {
     searchDesigns(args);
   } else if (command === 'recommend') {
     recommendDesigns(args);
+  } else if (command === 'read') {
+    await readBrief(args);
   } else if (command === 'use') {
     await useDesign(args[0]);
   } else if (command === 'like') {
@@ -130,6 +136,10 @@ try {
     await importVisualReference(args);
   } else if (command === 'report') {
     await writeDesignReport(args);
+  } else if (command === 'critique') {
+    await critiqueDesign(args);
+  } else if (command === 'polish') {
+    await polishDesign(args);
   } else {
     fail(`Unknown command: ${command}\n\n${usage}`);
   }
@@ -201,6 +211,34 @@ function recommendDesigns(rawArgs) {
   if (recommendations.some(({ design }) => design.region === 'china')) {
     console.log('Regional note: Chinese product-inspired styles are inspired by publicly visible domestic UI patterns. Not affiliated with or endorsed by the referenced product/company.');
   }
+}
+
+async function readBrief(rawArgs) {
+  const { positional, flags } = parseArgs(rawArgs);
+  const brief = positional.join(' ');
+  if (!brief.trim()) fail('Read requires a natural-language brief.');
+  const pageType = flags.page || inferPageTypeFromBrief(brief);
+  if (!supportedPageTypes().includes(pageType)) {
+    fail(`Unsupported page type: ${pageType}\nSupported page types: ${supportedPageTypes().join(', ')}`);
+  }
+  const source = normalizeSource(flags.source);
+  const read = buildBriefRead(brief, {
+    pageType,
+    source,
+    explicitDesign: flags.design,
+    explicitTemplate: flags.template,
+  });
+  const { readPath, productPath } = await writeBriefRead(read);
+
+  console.log('Vibe UI Design Read\n');
+  printBriefRead(read);
+  console.log('Suggested next commands:');
+  console.log(`- node scripts/design.mjs use ${read.recommended.design.id}`);
+  console.log(`- node scripts/design.mjs brief-check ${read.pageType} --design ${read.recommended.design.id}${read.recommended.template?.id ? ` --template ${read.recommended.template.id}` : ''}`);
+  console.log(`- node scripts/design.mjs generate ${read.pageType}${read.recommended.template?.id ? ` --template ${read.recommended.template.id}` : ''}`);
+  console.log('');
+  console.log(`Wrote ${relative(process.cwd(), readPath)}`);
+  console.log(`Wrote ${relative(process.cwd(), productPath)}`);
 }
 
 async function useDesign(id) {
@@ -308,6 +346,22 @@ function showTemplate(id) {
   template.layoutNotes.forEach((note) => console.log(`- ${note}`));
   console.log('\nP0 self-check:');
   template.p0SelfCheck.forEach((item) => console.log(`- ${item}`));
+  if (template.pagePreflight?.length) {
+    console.log('\nPage-specific preflight:');
+    template.pagePreflight.forEach((item) => console.log(`- ${item}`));
+  }
+  if (template.requiredSignals?.length) {
+    console.log('\nRequired signals:');
+    template.requiredSignals.forEach((item) => console.log(`- ${item}`));
+  }
+  if (template.forbiddenSignals?.length) {
+    console.log('\nForbidden signals:');
+    template.forbiddenSignals.forEach((item) => console.log(`- ${item}`));
+  }
+  if (template.dataOdIdMap?.length) {
+    console.log('\nSuggested data-od-id map:');
+    template.dataOdIdMap.forEach((item) => console.log(`- ${item}`));
+  }
 }
 
 async function showWorkflow(rawArgs) {
@@ -325,6 +379,8 @@ async function showWorkflow(rawArgs) {
   console.log(`Vibe UI workflow for ${pageType}\n`);
   console.log(`${qualityGateName}: default quality gate for visual work.`);
   console.log('Run these steps in order:\n');
+  console.log('Step 0. Read the product brief');
+  console.log('- node scripts/design.mjs read "<user goal>"');
   console.log(`Step 1. Select or confirm the design source`);
   console.log(`- ${current || flags.design ? `node scripts/design.mjs use ${designId}` : 'node scripts/design.mjs recommend "<user goal>" --source all'}`);
   console.log(`Step 2. Lock ${qualityGateName} invariants`);
@@ -335,6 +391,9 @@ async function showWorkflow(rawArgs) {
   console.log(`- node scripts/design.mjs generate ${pageType}${template ? ` --template ${template.id}` : ''}`);
   console.log('Step 5. Review implementation output');
   console.log(`- node scripts/design.mjs report ${target}`);
+  console.log('Step 6. Critique or polish if the report is not Ready');
+  console.log(`- node scripts/design.mjs critique ${target}`);
+  console.log(`- node scripts/design.mjs polish ${target}`);
   console.log('\nReady rule: ship only when the report decision is Ready, or when every blocking issue has a documented follow-up.');
 }
 
@@ -390,7 +449,14 @@ async function showBriefCheck(rawArgs) {
       : null;
   const template = flags.template ? findTemplate(flags.template) : null;
   const sections = template?.requiredSections?.length ? template.requiredSections : pageRecipe(pageType);
-  const watchlist = antiPatternsForBrief(pageType, template).slice(0, 7);
+  const read = await loadOrCreateBriefRead({
+    brief: flags.brief || '',
+    pageType,
+    source: flags.source || design?.source || current?.source || 'built-in',
+    explicitDesign: design?.displayId || current?.id,
+    explicitTemplate: template?.id,
+  });
+  const watchlist = antiPatternsForBrief(pageType, template, read).slice(0, 14);
   const verificationCommands = [
     'node scripts/design.mjs check <file_or_directory>',
     'node scripts/design.mjs report <file_or_directory>',
@@ -403,6 +469,7 @@ async function showBriefCheck(rawArgs) {
     template,
     sections,
     watchlist,
+    read,
     verificationCommands,
   });
   const contractPath = await writeGateContract(contract);
@@ -420,11 +487,17 @@ async function showBriefCheck(rawArgs) {
   console.log('- Logos/product screenshots: use user-provided or project-owned assets only.');
   console.log('- Claims and metrics: do not invent proof; cite real evidence or use neutral copy.\n');
 
+  printBriefReadSummary(read);
+
   console.log('Required sections:');
   sections.forEach((section) => console.log(`- ${section}`));
   if (template?.layoutNotes?.length) {
     console.log('\nLayout notes:');
     template.layoutNotes.forEach((note) => console.log(`- ${note}`));
+  }
+  if (template?.pagePreflight?.length) {
+    console.log('\nPage-specific preflight:');
+    template.pagePreflight.forEach((item) => console.log(`- ${item}`));
   }
 
   console.log('\nAnti-pattern watchlist:');
@@ -452,6 +525,12 @@ async function generatePrompt(rawArgs) {
   const prompt = await readFile(promptPath, 'utf8');
   const selected = current ? current.id : 'none';
   const template = flags.template ? findTemplate(flags.template) : null;
+  const read = await loadOrCreateBriefRead({
+    brief: flags.brief || '',
+    pageType,
+    explicitDesign: current?.id,
+    explicitTemplate: template?.id,
+  });
 
   console.log(`Generate a ${pageType} page using the current DESIGN.md.\n`);
   console.log(`Selected style: ${selected}`);
@@ -475,8 +554,25 @@ async function generatePrompt(rawArgs) {
     template.layoutNotes.forEach((note) => console.log(`- ${note}`));
     console.log('\nP0 self-check:');
     template.p0SelfCheck.forEach((item) => console.log(`- ${item}`));
+    if (template.pagePreflight?.length) {
+      console.log('\nPage-specific preflight:');
+      template.pagePreflight.forEach((item) => console.log(`- ${item}`));
+    }
+    if (template.requiredSignals?.length) {
+      console.log('\nRequired signals:');
+      template.requiredSignals.forEach((item) => console.log(`- ${item}`));
+    }
+    if (template.forbiddenSignals?.length) {
+      console.log('\nForbidden signals:');
+      template.forbiddenSignals.forEach((item) => console.log(`- ${item}`));
+    }
+    if (template.dataOdIdMap?.length) {
+      console.log('\nSuggested data-od-id map:');
+      template.dataOdIdMap.forEach((item) => console.log(`- ${item}`));
+    }
     console.log('');
   }
+  printGenerationReadGuidance(read);
   console.log(prompt.trim());
 }
 
@@ -561,9 +657,32 @@ async function writeDesignReport(rawArgs) {
   console.log(`Wrote design consistency report: ${relative(process.cwd(), outPath)}`);
 }
 
-function buildGateContract({ pageType, design, current, template, sections, watchlist, verificationCommands }) {
+async function critiqueDesign(rawArgs) {
+  const { positional, flags } = parseArgs(rawArgs);
+  const targetArg = positional[0];
+  if (!targetArg) fail('critique requires a file or directory.');
+  const review = await analyzeDesign(targetArg);
+  const outDir = resolve(process.cwd(), flags.out || join('.vibe-ui', 'critique'));
+  await mkdir(outDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const outPath = join(outDir, `critique-${stamp}.md`);
+  await writeFile(outPath, buildCritiqueMarkdown(review));
+  printCritiqueSummary(review);
+  console.log(`\nWrote ${relative(process.cwd(), outPath)}`);
+}
+
+async function polishDesign(rawArgs) {
+  const { positional } = parseArgs(rawArgs);
+  const targetArg = positional[0];
+  if (!targetArg) fail('polish requires a file or directory.');
+  const review = await analyzeDesign(targetArg);
+  console.log('Vibe UI polish prompt:\n');
+  console.log(buildPolishPrompt(review));
+}
+
+function buildGateContract({ pageType, design, current, template, sections, watchlist, read, verificationCommands }) {
   return {
-    schemaVersion: 'vibe-ui/vibe-gate-contract/v1',
+    schemaVersion: 'vibe-ui/vibe-gate-contract/v2',
     qualityGate: {
       name: qualityGateName,
       purpose: 'Default execution contract for Vibe UI visual work.',
@@ -584,6 +703,7 @@ function buildGateContract({ pageType, design, current, template, sections, watc
       id: template.id,
       pageType: template.pageType,
       source: template.source,
+      pagePreflight: template.pagePreflight || [],
     } : null,
     materialsStatus: {
       designMd: design ? 'selected-or-ready' : 'missing',
@@ -592,9 +712,22 @@ function buildGateContract({ pageType, design, current, template, sections, watc
       claims: 'cite real evidence or use neutral copy',
     },
     requiredSections: sections,
+    designRead: read ? {
+      id: read.id,
+      productType: read.productType,
+      audience: read.audience,
+      buyerAnxiety: read.buyerAnxiety,
+      register: read.register,
+      dials: read.dials,
+      proofStrategy: read.proofStrategy,
+      sectionStrategy: read.sectionStrategy,
+      antiReferences: read.antiReferences,
+      recommended: read.recommended,
+    } : null,
     antiPatternWatchlist: watchlist.map((pattern) => ({
       id: pattern.id,
       category: pattern.category,
+      label: pattern.label,
       fix: pattern.fix,
     })),
     verificationCommands,
@@ -622,6 +755,8 @@ async function analyzeDesign(targetArg) {
   if (!existsSync(target)) fail(`Target does not exist: ${targetArg}`);
 
   const current = await loadCurrentDesign();
+  const contract = await loadGateContract();
+  const read = await loadBriefRead();
   const designText = existsSync(join(cwd, 'DESIGN.md')) ? await readFile(join(cwd, 'DESIGN.md'), 'utf8') : '';
   const files = await collectFiles(target);
   const textByFile = await Promise.all(files.map(async (file) => [file, await readFile(file, 'utf8')]));
@@ -660,6 +795,10 @@ async function analyzeDesign(targetArg) {
       patchSuggestions.push(`Replace \`${gradientMatch[0]}\` with a single DESIGN.md action color such as \`${primary.value}\` (${primary.name}).`);
     }
   }
+  if (/radial-gradient|linear-gradient\(/i.test(combined) && !/gradient/i.test(designText)) {
+    addFinding(findings, 'Color', 'Uses CSS gradients even though the active DESIGN.md does not clearly document gradient usage.');
+    addQaFinding(qaFindings, 'generic-ai-gradient', 'Matched raw CSS gradient usage without DESIGN.md gradient evidence.');
+  }
   if (/#(6366f1|4f46e5|818cf8|7c3aed)\b/i.test(combined)) {
     addFinding(findings, 'Color', 'Uses an AI-default indigo/default LLM accent color; replace it with a selected DESIGN.md token.');
     addQaFinding(qaFindings, 'default-llm-indigo');
@@ -691,6 +830,19 @@ async function analyzeDesign(targetArg) {
       patchSuggestions.push(`Replace \`${color}\` with DESIGN.md token \`${replacement.value}\` (${replacement.name}).`);
     }
   }
+  const uniqueHardcoded = unique(hardcoded);
+  if (uniqueHardcoded.length >= 8 && tokenColors.size && uniqueHardcoded.length > tokenColors.size + 4) {
+    addFinding(findings, 'Color', `Uses many non-token colors (${uniqueHardcoded.length}); this may be palette drift beyond DESIGN.md.`);
+    addQaFinding(qaFindings, 'too-many-accents', `Matched ${uniqueHardcoded.length} raw colors outside DESIGN.md token candidates.`);
+  }
+  if (/color:\s*rgba\([^)]*,\s*0\.[0-4][0-9]?\)|opacity:\s*0\.[0-4][0-9]?|text-(?:gray|slate|zinc|neutral)-[34]00/i.test(combined)) {
+    addFinding(findings, 'Color', 'Uses very muted or opacity-heavy text that may fail contrast, especially on tinted surfaces.');
+    addQaFinding(qaFindings, 'low-contrast-text');
+  }
+  if ((combined.match(/background:\s*#(?:0[0-9a-f]|1[0-9a-f]|2[0-9a-f])/gi) || []).length >= 2 && (combined.match(/background:\s*#f|background:\s*white|background:\s*#fff/gi) || []).length >= 2) {
+    addFinding(findings, 'Color', 'Alternates dark and light full-section surfaces multiple times; confirm this is a documented design pattern.');
+    addQaFinding(qaFindings, 'theme-drift');
+  }
   if (/glassmorphism|backdrop-blur|blur-\[|neon|animate-pulse/i.test(combined)) {
     addFinding(findings, 'Components', 'Introduces visual effects that often drift from DESIGN.md unless the selected style explicitly calls for them.');
     addQaFinding(qaFindings, 'generic-ai-gradient', 'Matched generic effect language such as glass, blur, neon, or pulse.');
@@ -698,6 +850,18 @@ async function analyzeDesign(targetArg) {
   if (/[\u{1f000}-\u{1faff}\u{2600}-\u{27bf}]/u.test(combined)) {
     addFinding(findings, 'Brand safety', 'Uses emoji as UI ornament/iconography; replace with the project icon system or remove if DESIGN.md does not allow it.');
     addQaFinding(qaFindings, 'emoji-icon');
+  }
+  if (/\b(?:Google|Microsoft|Apple|Meta|Amazon|Netflix|Stripe|Linear|Vercel|OpenAI|GitHub|Jira|Okta|Slack|Notion|GRC)\b/.test(combined) && /logo|customer|trusted|integration|proof|credibility/i.test(combined)) {
+    addFinding(findings, 'Brand safety', 'Uses recognizable customer/integration/logo-wall names; verify these are real product-owned relationships before shipping.');
+    addQaFinding(qaFindings, 'fake-logo-wall');
+  }
+  if (/\b(?:official|endorsed|certified|partnered with|in partnership with|brand system)\b/i.test(combined) && /\b(?:inspired|like|style|Linear|Stripe|OpenAI|Apple|Vercel)\b/i.test(combined)) {
+    addFinding(findings, 'Brand safety', 'Uses official-sounding affiliation language around an inspiration source.');
+    addQaFinding(qaFindings, 'copied-brand-claim');
+  }
+  if (/>[^<]*(?:Design read|Taste dials|Variance\s+\d|Motion\s+\d|Density\s+\d|pre-flight|Vibe Gate check)[^<]*</i.test(combined)) {
+    addFinding(findings, 'Brand safety', 'Visible UI appears to include internal design scaffold text.');
+    addQaFinding(qaFindings, 'visible-design-scaffold');
   }
   if (/\b(?:\d{2,}x|99(?:\.9+)?%|1m\+|100k\+|millions?|billions?)\b/i.test(combined)) {
     addFinding(findings, 'Copy/content', 'Uses an invented metric or unsupported numeric claim; replace with real evidence or neutral product copy.');
@@ -707,17 +871,90 @@ async function analyzeDesign(targetArg) {
     addFinding(findings, 'Copy/content', 'Contains filler copy or placeholder content; write specific product-facing copy.');
     addQaFinding(qaFindings, 'filler-copy');
   }
+  const buzzwordMatches = combined.match(/\b(?:seamless|unlock|transform|revolutionize|supercharge|beautiful|next-generation|cutting-edge|effortless|powerful|all-in-one)\b/gi) || [];
+  if (buzzwordMatches.length >= 4) {
+    addFinding(findings, 'Copy/content', `Uses repeated generic marketing words: ${unique(buzzwordMatches.map((item) => item.toLowerCase())).slice(0, 6).join(', ')}.`);
+    addQaFinding(qaFindings, 'marketing-buzzwords', `Matched ${buzzwordMatches.length} generic marketing terms.`);
+  }
+  const genericCtas = combined.match(/>\s*(?:Get started|Learn more|Start free|Book a demo|Try now|Contact us)\s*</gi) || [];
+  if (genericCtas.length >= 2) {
+    addFinding(findings, 'Copy/content', 'Repeats generic CTA labels without product-specific intent.');
+    addQaFinding(qaFindings, 'generic-cta', `Matched ${genericCtas.length} generic CTA labels.`);
+  }
+  if (/trust|proof|credib|customer|audit|evidence/i.test(combined) && !/\b(?:model card|access log|approval|customer|integration|screenshot|metric|case study|evidence|audit packet|certification)\b/i.test(combined)) {
+    addFinding(findings, 'Copy/content', 'Mentions trust/proof without a concrete evidence strategy nearby.');
+    addQaFinding(qaFindings, 'weak-proof-strategy');
+  }
+  if (/\b(?:Platform|Security|Compliance|Clinical|Marketing|Sales|Engineer|Designer|Admin)\b/.test(combined) && /\b(?:can|track|manage|see|view|use)\b/i.test(combined) && !/\?/.test(combined)) {
+    addFinding(findings, 'Copy/content', 'Audience/role copy looks descriptive but may not express the role decision, anxiety, or required evidence.');
+    addQaFinding(qaFindings, 'role-copy-too-generic');
+  }
   if (/text-transform:\s*uppercase|uppercase/.test(combined) && !/letter-spacing|tracking-/.test(combined)) {
     addFinding(findings, 'Typography', 'Uppercase text appears without explicit letter-spacing/tracking; add spacing or use sentence case.');
     addQaFinding(qaFindings, 'uppercase-without-letter-spacing');
+  }
+  if (/font-size:\s*(?:9[0-9]|1[0-9]{2,})px|\btext-\[?(?:9[0-9]|1[0-9]{2,})px\]?|clamp\([^)]*(?:9[0-9]|1[0-9]{2,})px/i.test(combined)) {
+    addFinding(findings, 'Typography', 'Hero or display type may be oversized for a professional product page.');
+    addQaFinding(qaFindings, 'oversized-h1');
+  }
+  if (/letter-spacing:\s*-(?:0\.[6-9]|[1-9])(?:px|em|rem)/i.test(combined)) {
+    addFinding(findings, 'Typography', 'Uses extreme negative tracking; verify it matches DESIGN.md and remains readable.');
+    addQaFinding(qaFindings, 'crushed-tracking');
+  }
+  if (/<p\b(?![^>]*(?:max-width|max-w-|class="[^"]*(?:lead|copy|prose|text)|style="[^"]*max-width))/i.test(combined) && /\b(?:width:\s*100%|grid-template-columns|container|shell)\b/i.test(combined)) {
+    addFinding(findings, 'Typography', 'Paragraph copy may lack a readable max-width constraint.');
+    addQaFinding(qaFindings, 'long-line-length');
+  }
+  if (/font-size:\s*(?:[0-9]|1[01])px|\btext-\[?(?:[0-9]|1[01])px\]?/i.test(combined)) {
+    addFinding(findings, 'Typography', 'Uses meaningful text below 12px; verify readability on mobile.');
+    addQaFinding(qaFindings, 'tiny-text');
   }
   if (/<section\b/i.test(combined) && !/data-od-id=/.test(combined)) {
     addFinding(findings, 'Layout', 'Sections are not labeled with data-od-id; add stable section identifiers for review and iteration.');
     addQaFinding(qaFindings, 'missing-section-id');
   }
+  const repeatedGridMatches = combined.match(/repeat\(\s*[34]\s*,\s*1fr\s*\)/g) || [];
+  const cardMatches = combined.match(/\bclass(?:Name)?=["'][^"']*(?:card|tile|module|feature)[^"']*["']/gi) || [];
+  if (repeatedGridMatches.length >= 2 || cardMatches.length >= 10) {
+    addFinding(findings, 'Layout', 'Repeats equal card/grid structures often enough to risk templated AI SaaS rhythm.');
+    addQaFinding(qaFindings, 'identical-card-grids', `Matched ${repeatedGridMatches.length} equal grid declarations and ${cardMatches.length} card-like class references.`);
+  }
+  if (/(?:card|panel)[^{}]*{[^}]*\.(?:card|panel)|class(?:Name)?=["'][^"']*(?:card|panel)[^"']*["'][\s\S]{0,180}class(?:Name)?=["'][^"']*(?:card|panel)[^"']*["']/i.test(combined)) {
+    addFinding(findings, 'Layout', 'Contains likely nested card/panel structures; verify they are tool surfaces, not decorative card nesting.');
+    addQaFinding(qaFindings, 'nested-cards');
+  }
+  const kickerMatches = combined.match(/\b(?:eyebrow|kicker|overline)\b/gi) || [];
+  if (kickerMatches.length >= 4) {
+    addFinding(findings, 'Layout', 'Repeats eyebrow/kicker patterns across many sections.');
+    addQaFinding(qaFindings, 'repeated-section-kicker', `Matched ${kickerMatches.length} eyebrow/kicker references.`);
+  }
+  if (/hero[\s\S]{0,900}(?:pill|chip|badge|rounded-full|border-radius:\s*999)/i.test(combined)) {
+    addFinding(findings, 'Layout', 'Hero appears to use a decorative chip/pill; confirm it carries product information.');
+    addQaFinding(qaFindings, 'hero-eyebrow-chip');
+  }
+  if (/\b(?:0[1-9]\s*\/|0[1-9]\b|Step\s*0?[1-9])\b/i.test(combined) && !/\b(?:workflow|path|steps|sequence|ordered|timeline)\b/i.test(combined)) {
+    addFinding(findings, 'Layout', 'Uses numbered markers without obvious workflow/sequence context.');
+    addQaFinding(qaFindings, 'numbered-section-markers');
+  }
+  if (/(?:icon|Icon)[^<>{}]{0,120}(?:h3|heading|title)|class(?:Name)?=["'][^"']*icon[^"']*["'][\s\S]{0,220}<h3/i.test(combined)) {
+    addFinding(findings, 'Components', 'Repeats icon-above-heading feature-card structure; verify icons encode real product concepts.');
+    addQaFinding(qaFindings, 'icon-tile-stack');
+  }
   if (/<button\b/i.test(combined) && !/(aria-label|>\s*[^<]+\s*<\/button>)/i.test(combined)) {
     addFinding(findings, 'Accessibility', 'Button elements need visible text or aria-label for accessibility.');
     addQaFinding(qaFindings, 'unlabeled-button');
+  }
+  if (/<(?:button|a|input)\b[^>]*(?:height:\s*(?:[0-2][0-9]|3[0-5])px|padding:\s*(?:[0-5])px|\bpy-[01]\b|\bh-[0-8]\b)/i.test(combined)) {
+    addFinding(findings, 'Accessibility', 'Interactive controls may be too small for comfortable touch use.');
+    addQaFinding(qaFindings, 'small-touch-target');
+  }
+  if (/overflow:\s*hidden|\boverflow-hidden\b/i.test(combined) && /<p\b|<button\b|<h[1-6]\b/i.test(combined)) {
+    addFinding(findings, 'Accessibility', 'Uses overflow clipping in a page with text/controls; verify no mobile clipping.');
+    addQaFinding(qaFindings, 'clipped-overflow');
+  }
+  if (/(?:fake-app|fake-dashboard|skeleton|placeholder-bar|class(?:Name)?=["'][^"']*(?:line|bar)[^"']*["'][\s\S]{0,120}class(?:Name)?=["'][^"']*(?:line|bar))/i.test(combined)) {
+    addFinding(findings, 'Components', 'Product proof appears to use skeleton/fake-dashboard structures; replace with meaningful product state.');
+    addQaFinding(qaFindings, 'fake-screenshot-divs');
   }
   if (!/function|const|className|<header|<main|<section|export default/.test(combined)) {
     addFinding(findings, 'Layout', 'Target does not look like reusable page/component code; review component structure manually.');
@@ -727,11 +964,15 @@ async function analyzeDesign(targetArg) {
   const issues = Object.values(findings).flat();
   const score = Math.max(1, Math.min(10, 10 - issues.length * 1.2 + Math.min(good.length, 2)));
   const gate = buildGateSummary(Math.round(score), qaFindings, issues, patchSuggestions);
+  const synthesis = buildSynthesis({ combined, read, contract, designTokens, qaFindings, files, issues });
   return {
     current,
+    contract,
+    read,
     files,
     score: Math.round(score),
     gate,
+    synthesis,
     good,
     issues,
     findings,
@@ -755,6 +996,8 @@ function buildGateSummary(score, qaFindings, issues, patchSuggestions) {
     'missing-section-id',
     'unlabeled-button',
     'weak-component-structure',
+    'visible-design-scaffold',
+    'copied-brand-claim',
   ]);
   const blocking = qaFindings.filter((finding) => blockingIds.has(finding.id));
   const decision = blocking.length || score < 8 ? 'Needs revision' : 'Ready';
@@ -784,6 +1027,154 @@ function addQaFinding(qaFindings, id, evidenceOverride) {
     fix: pattern.fix,
     evidence: evidenceOverride || pattern.evidence,
   });
+}
+
+function buildBriefRead(brief, options = {}) {
+  const pageType = options.pageType || inferPageTypeFromBrief(brief);
+  const source = normalizeSource(options.source);
+  const recommendations = options.explicitDesign
+    ? [{ design: findDesign(options.explicitDesign), reasons: ['explicit design selected by user'], score: 99 }]
+    : rankDesigns(enrichGoal(brief), source).filter((item) => item.score > 0).slice(0, 3);
+  const design = recommendations[0]?.design || filterBySource(designs, source)[0] || designs[0];
+  const template = options.explicitTemplate
+    ? findTemplate(options.explicitTemplate)
+    : recommendTemplateForRead(pageType, brief);
+  const productType = inferProductType(brief);
+  const audience = inferAudience(brief);
+  const buyerAnxiety = inferBuyerAnxiety(brief, audience);
+  const register = inferRegister(brief, productType, audience);
+  const dials = inferDials(brief, design, productType, audience);
+  const proofStrategy = inferProofStrategy(brief, productType, audience);
+  const sectionStrategy = inferSectionStrategy(pageType, brief, productType, audience, template);
+  const antiReferences = inferAntiReferences(brief, productType, design);
+  const read = {
+    schemaVersion: 'vibe-ui/brief-read/v1',
+    id: stableReadId(brief),
+    brief,
+    pageType,
+    productType,
+    audience,
+    buyerAnxiety,
+    register,
+    dials,
+    proofStrategy,
+    sectionStrategy,
+    antiReferences,
+    recommended: {
+      design: {
+        id: design.displayId,
+        source: design.source,
+        sourceId: design.sourceId,
+        reason: reasonFor(design, brief, recommendations[0]?.reasons || ['brief fit']),
+        dials: design.dials || null,
+      },
+      alternatives: recommendations.slice(1, 3).map(({ design: item, reasons }) => ({
+        id: item.displayId,
+        source: item.source,
+        reason: reasonFor(item, brief, reasons),
+      })),
+      template: template ? {
+        id: template.id,
+        pageType: template.pageType,
+        reason: template.description,
+      } : null,
+    },
+    generatedAt: new Date().toISOString(),
+  };
+  return read;
+}
+
+async function writeBriefRead(read) {
+  const stateDir = join(process.cwd(), '.vibe-ui');
+  await mkdir(stateDir, { recursive: true });
+  const readPath = join(stateDir, 'brief-read.json');
+  const productPath = join(stateDir, 'product-context.json');
+  await writeFile(readPath, `${JSON.stringify(read, null, 2)}\n`);
+  await writeFile(productPath, `${JSON.stringify(buildProductContext(read), null, 2)}\n`);
+  return { readPath, productPath };
+}
+
+async function loadBriefRead() {
+  const readPath = join(process.cwd(), '.vibe-ui', 'brief-read.json');
+  if (!existsSync(readPath)) return null;
+  return JSON.parse(await readFile(readPath, 'utf8'));
+}
+
+async function loadGateContract() {
+  const contractPath = join(process.cwd(), '.vibe-ui', 'vibe-gate-contract.json');
+  if (!existsSync(contractPath)) return null;
+  return JSON.parse(await readFile(contractPath, 'utf8'));
+}
+
+async function loadOrCreateBriefRead(options = {}) {
+  const existing = await loadBriefRead();
+  if (existing && !options.brief) return existing;
+  const fallbackBrief = options.brief || [
+    options.pageType || 'page',
+    options.explicitDesign ? `using ${options.explicitDesign}` : '',
+    options.explicitTemplate ? `with ${options.explicitTemplate}` : '',
+  ].filter(Boolean).join(' ');
+  const read = buildBriefRead(fallbackBrief, options);
+  if (options.brief) await writeBriefRead(read);
+  return read;
+}
+
+function buildProductContext(read) {
+  return {
+    schemaVersion: 'vibe-ui/product-context/v1',
+    source: 'Vibe UI brief read. Lightweight PRODUCT.md-style strategic context.',
+    productType: read.productType,
+    audience: read.audience,
+    buyerAnxiety: read.buyerAnxiety,
+    register: read.register,
+    proofStrategy: read.proofStrategy,
+    antiReferences: read.antiReferences,
+    generatedAt: read.generatedAt,
+  };
+}
+
+function printBriefRead(read) {
+  console.log(`Brief: ${read.brief}`);
+  console.log(`Page type: ${read.pageType}`);
+  console.log(`Product type: ${read.productType}`);
+  console.log(`Audience: ${read.audience.join(', ') || 'general users'}`);
+  console.log(`Register: ${read.register}`);
+  console.log(`Recommended design: ${read.recommended.design.id} (${read.recommended.design.reason})`);
+  if (read.recommended.template) console.log(`Recommended template: ${read.recommended.template.id}`);
+  console.log('');
+  printBriefReadSummary(read);
+}
+
+function printBriefReadSummary(read) {
+  if (!read) return;
+  console.log('Design Read:');
+  console.log(`- Product type: ${read.productType}`);
+  console.log(`- Audience: ${read.audience.join(', ') || 'general users'}`);
+  console.log(`- Register: ${read.register}`);
+  console.log(`- Dials: density ${read.dials.density}, variance ${read.dials.variance}, motion ${read.dials.motion}`);
+  console.log(`- Proof strategy: ${read.proofStrategy.mode} - ${read.proofStrategy.guidance}`);
+  console.log('- Buyer anxiety:');
+  read.buyerAnxiety.slice(0, 4).forEach((item) => console.log(`  - ${item}`));
+  console.log('- Section strategy:');
+  read.sectionStrategy.slice(0, 6).forEach((item) => console.log(`  - ${item}`));
+  console.log('- Anti-reference:');
+  read.antiReferences.slice(0, 4).forEach((item) => console.log(`  - ${item}`));
+  console.log('');
+}
+
+function printGenerationReadGuidance(read) {
+  if (!read) return;
+  console.log('Design Read guidance for generation:');
+  console.log(`- Audience: ${read.audience.join(', ') || 'general users'}`);
+  console.log(`- Register: ${read.register}`);
+  console.log(`- Dials: density ${read.dials.density}, variance ${read.dials.variance}, motion ${read.dials.motion}`);
+  console.log(`- Proof strategy: ${read.proofStrategy.mode}; ${read.proofStrategy.guidance}`);
+  console.log('- Buyer anxiety to express:');
+  read.buyerAnxiety.slice(0, 4).forEach((item) => console.log(`  - ${item}`));
+  console.log('- Section strategy to follow:');
+  read.sectionStrategy.slice(0, 6).forEach((item) => console.log(`  - ${item}`));
+  console.log('- Do not render Design Read, dials, or internal scaffold text in the production UI.');
+  console.log('');
 }
 
 function printDesignReview(review) {
@@ -820,6 +1211,241 @@ function printDesignReview(review) {
   } else {
     console.log('- Do a rendered visual pass against DESIGN.md before shipping.');
   }
+}
+
+function inferPageTypeFromBrief(brief) {
+  const text = normalize(brief);
+  if (/dashboard|admin|console|后台|管理台|控制台/.test(text)) return 'dashboard';
+  if (/pricing|price|plan|定价|套餐/.test(text)) return 'pricing';
+  if (/docs|documentation|api|文档/.test(text)) return 'docs';
+  if (/login|signin|sign in|登录/.test(text)) return 'login';
+  if (/settings|设置|配置/.test(text)) return 'settings';
+  if (/profile|个人主页|用户页/.test(text)) return 'profile';
+  if (/extension|chrome|插件|扩展/.test(text)) return 'chrome-extension-landing';
+  return 'landing';
+}
+
+function inferProductType(brief) {
+  const text = normalize(brief);
+  const matches = [
+    [/healthcare|clinical|medical|hospital|patient|医疗|临床|健康/, 'regulated healthcare product'],
+    [/fintech|payment|bank|crypto|finance|金融|支付|银行/, 'financial trust product'],
+    [/developer|api|code|engineering|devtool|开发者|工程师|代码/, 'developer tool'],
+    [/dashboard|admin|ops|workflow|operations|后台|工作流/, 'operational workflow tool'],
+    [/commerce|shop|merchant|ecommerce|电商|商家/, 'commerce platform'],
+    [/creator|community|social|content|社区|创作者|内容/, 'creator or community product'],
+    [/\bai\b|ai |人工智能|智能|model|llm/, 'AI product'],
+  ];
+  return matches.find(([pattern]) => pattern.test(text))?.[1] || 'product-led SaaS';
+}
+
+function inferAudience(brief) {
+  const text = normalize(brief);
+  const audience = [];
+  const map = [
+    [/platform|engineering|developer|frontend|backend|工程|开发|平台/, 'platform and engineering teams'],
+    [/security|安全|secops/, 'security teams'],
+    [/compliance|legal|audit|risk|合规|法务|审计|风控/, 'compliance and risk teams'],
+    [/clinical|doctor|patient|medical|healthcare|临床|医生|患者|医疗/, 'clinical safety teams'],
+    [/founder|executive|leader|ceo|管理层|老板/, 'executive buyers'],
+    [/designer|creator|创作者|设计师/, 'creative teams'],
+    [/merchant|seller|commerce|商家|卖家/, 'merchant teams'],
+    [/sales|marketing|growth|销售|市场|增长/, 'go-to-market teams'],
+  ];
+  for (const [pattern, label] of map) {
+    if (pattern.test(text)) audience.push(label);
+  }
+  return unique(audience.length ? audience : ['product teams']);
+}
+
+function inferBuyerAnxiety(brief, audience) {
+  const text = normalize(brief);
+  const anxieties = [];
+  if (/healthcare|clinical|medical|patient|医疗|临床|患者/.test(text)) {
+    anxieties.push('What could affect patient safety, and who approved that risk?');
+  }
+  if (/security|privacy|安全|隐私/.test(text)) {
+    anxieties.push('Which controls failed, which tests passed, and which exceptions remain open?');
+  }
+  if (/compliance|audit|legal|risk|合规|审计|法务|风控/.test(text)) {
+    anxieties.push('Can this decision be explained later with complete, dated, reviewable evidence?');
+  }
+  if (/\bai\b|ai |model|llm|人工智能|模型/.test(text)) {
+    anxieties.push('How do we ship model changes without losing evaluation context or ownership?');
+  }
+  if (/developer|engineering|platform|工程|平台/.test(text)) {
+    anxieties.push('Which workflow is blocked, who owns it, and what evidence is missing?');
+  }
+  if (!anxieties.length) {
+    anxieties.push(`What decision does ${audience[0] || 'the buyer'} need to make before trusting this product?`);
+    anxieties.push('What proof would make the product feel real rather than generically marketed?');
+  }
+  return unique(anxieties).slice(0, 5);
+}
+
+function inferRegister(brief, productType, audience) {
+  const text = normalize(`${brief} ${productType} ${audience.join(' ')}`);
+  if (/healthcare|clinical|compliance|audit|security|finance|regulated|医疗|临床|合规|审计|安全|金融/.test(text)) {
+    return 'trust-first, precise, operational, low-hype';
+  }
+  if (/developer|api|docs|engineering|开发者|工程师|文档/.test(text)) {
+    return 'technical, clear, product-led';
+  }
+  if (/consumer|community|creator|lifestyle|社区|创作者|生活方式/.test(text)) {
+    return 'warm, direct, human, visually expressive';
+  }
+  return 'product-led, concise, credible';
+}
+
+function inferDials(brief, design, productType, audience) {
+  const text = normalize(`${brief} ${productType} ${audience.join(' ')} ${(design.style || []).join(' ')}`);
+  let density = Number(design.dials?.density) || 5;
+  let variance = Number(design.dials?.variance) || 4;
+  let motion = Number(design.dials?.motion) || 2;
+  if (/dashboard|operations|workflow|audit|compliance|security|clinical|finance|后台|工作流|审计|合规|安全/.test(text)) density += 2;
+  if (/docs|developer|api|文档|开发/.test(text)) density += 1;
+  if (/consumer|creator|community|marketing|landing|创作者|社区/.test(text)) variance += 2;
+  if (/premium|editorial|creative|launch|高级|创意/.test(text)) variance += 1;
+  if (/calm|minimal|docs|dashboard|regulated|合规|审计/.test(text)) motion -= 1;
+  if (/playful|consumer|creative|游戏|动效/.test(text)) motion += 2;
+  return {
+    density: clampDial(density),
+    variance: clampDial(variance),
+    motion: clampDial(motion),
+    notes: [
+      density >= 7 ? 'Use denser product states, tables, status rows, or evidence blocks.' : 'Keep density moderate and leave enough reading rhythm.',
+      variance >= 6 ? 'Vary section shapes where it improves comprehension.' : 'Prefer stable composition and avoid decorative asymmetry.',
+      motion <= 2 ? 'Keep motion minimal; use transitions only for state clarity.' : 'Motion may support product storytelling if the local stack supports it.',
+    ],
+  };
+}
+
+function inferProofStrategy(brief, productType, audience) {
+  const text = normalize(`${brief} ${productType} ${audience.join(' ')}`);
+  if (/healthcare|clinical|compliance|audit|security|regulated|医疗|临床|合规|审计|安全/.test(text)) {
+    return {
+      mode: 'evidence-first',
+      guidance: 'Show required evidence categories, review trails, control mapping, approvals, audit packets, or real integrations. Do not invent customer logos or metrics.',
+      requiredSignals: ['evidence categories', 'owner/reviewer states', 'audit or approval trail'],
+    };
+  }
+  if (/developer|api|docs|engineering|开发者|工程师|文档/.test(text)) {
+    return {
+      mode: 'product-proof',
+      guidance: 'Show real product workflow, code/config examples, integration surfaces, or developer outcomes before marketing claims.',
+      requiredSignals: ['workflow preview', 'technical artifact', 'clear CTA'],
+    };
+  }
+  if (/shopping|shop|store|ecommerce|retail|marketplace|product catalog|home goods|kitchenware|fragrance|storage|gifts|商品|购物|商城|零售|店铺/.test(text)) {
+    return {
+      mode: 'product-evidence',
+      guidance: 'Use product names, prices, materials, care notes, category paths, editor curation, service notes, and shopping FAQ objections. Do not invent reviews, discounts, sales numbers, or outside brand relationships.',
+      requiredSignals: ['product names and prices', 'material/color notes', 'category paths', 'editor curation', 'shopping FAQ objections'],
+    };
+  }
+  if (/commerce|pricing|电商|商家|定价/.test(text)) {
+    return {
+      mode: 'conversion-proof',
+      guidance: 'Use verified plans, merchant/user proof, recognizable workflow outcomes, and objection-handling FAQ.',
+      requiredSignals: ['plan or workflow proof', 'customer/integration evidence when real', 'FAQ objections'],
+    };
+  }
+  return {
+    mode: 'neutral-proof',
+    guidance: 'Use real customer/integration evidence when available; otherwise use neutral product proof categories and avoid fake metrics.',
+    requiredSignals: ['product state', 'workflow outcome', 'neutral proof category'],
+  };
+}
+
+function inferSectionStrategy(pageType, brief, productType, audience, template) {
+  if (template?.requiredSections?.length) {
+    return template.requiredSections.slice(0, 7);
+  }
+  if (pageType === 'dashboard') {
+    return [
+      'Persistent navigation and current workflow context',
+      'Primary action/filter row with stable controls',
+      'Operational summary with grounded labels',
+      'Main work surface such as table, board, feed, chart, or queue',
+      'Secondary activity, evidence, or detail panel',
+    ];
+  }
+  if (pageType === 'docs') {
+    return [
+      'Docs shell with navigation and readable article width',
+      'Summary and quick links',
+      'Code/configuration example',
+      'Callout or warning using DESIGN.md rules',
+      'Next/previous navigation',
+    ];
+  }
+  const base = [
+    'Hero with product name, literal value proposition, primary CTA, secondary CTA, and visible product proof',
+    'Credibility or evidence strip using verified proof or neutral proof categories',
+    'Feature narrative with concrete workflow modules instead of generic benefit cards',
+    'Product walkthrough with sequential steps and UI states',
+    'Audience or role map tied to decision anxiety',
+    'Conversion/CTA section aligned to the selected DESIGN.md rhythm',
+    'FAQ or objection handling',
+  ];
+  if (/regulated|healthcare|clinical|compliance|audit|security/i.test(`${brief} ${productType}`)) {
+    base.splice(2, 0, 'Risk/control map that makes ownership, evidence, and blocked states visible');
+  }
+  return base.slice(0, 8);
+}
+
+function inferAntiReferences(brief, productType, design) {
+  const text = normalize(`${brief} ${productType}`);
+  const refs = [
+    'Do not render internal Design Read or dial scaffolds in production UI.',
+    'Do not use default AI indigo gradients, fake metrics, or unsupported logo walls.',
+  ];
+  if (/healthcare|clinical|compliance|audit|security|regulated|医疗|临床|合规|审计|安全/.test(text)) {
+    refs.push('Do not make it feel like a playful generic AI SaaS landing page.');
+    refs.push('Do not substitute vague trust language for evidence categories and ownership states.');
+  }
+  if (/developer|api|engineering|开发/.test(text)) {
+    refs.push('Do not bury product workflow behind decorative marketing cards.');
+  }
+  if (isDarkDesign(design)) {
+    refs.push('Do not invert the selected dark style into a generic light SaaS layout without reason.');
+  }
+  return unique(refs);
+}
+
+function recommendTemplateForRead(pageType, brief) {
+  const text = normalize(brief);
+  const matches = [
+    [/shopping|shop|store|ecommerce|commerce|retail|marketplace|product catalog|home goods|kitchenware|fragrance|storage|gifts|商品|购物|电商|商城|零售|店铺/, 'vibe:commerce-home'],
+    [/waitlist|coming soon|early access|beta signup|pre-launch|email capture|候补|等待名单|内测|早鸟/, 'vibe:waitlist-page'],
+    [/pricing|plans|subscription|compare plans|tier|billing|定价|套餐|订阅/, 'vibe:pricing-page'],
+    [/mobile onboarding|onboarding flow|first run|permission|引导|新手引导/, 'vibe:mobile-onboarding'],
+    [/mobile app|ios|android|app screen|移动端|手机应用/, 'vibe:mobile-app'],
+    [/kanban|task board|project board|workflow board|看板|任务板/, 'vibe:kanban-board'],
+    [/dashboard|admin|console|analytics|ops|后台|管理台|控制台|仪表盘/, 'vibe:dashboard'],
+    [/docs home|documentation|api docs|developer docs|docs|文档|开发者文档/, 'vibe:docs-home'],
+    [/portfolio|personal site|profile|creator|case stud|作品集|个人主页|简历|创作者/, 'vibe:portfolio-profile'],
+    [/launch|product launch|release page|plugin|extension|open source|发布页|产品发布|插件|开源/, 'vibe:product-launch'],
+  ];
+  for (const [pattern, id] of matches) {
+    if (pattern.test(text)) return findTemplate(id);
+  }
+  const exact = (templateRecipes.templates || []).find((template) => template.pageType === pageType && !template.id.startsWith('vibe:'));
+  if (exact) return exact;
+  const vibeExact = (templateRecipes.templates || []).find((template) => template.pageType === pageType);
+  if (vibeExact) return vibeExact;
+  if (pageType === 'landing') return findTemplate('open-design:saas-landing');
+  return null;
+}
+
+function stableReadId(brief) {
+  let hash = 0;
+  for (const char of brief) hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+  return `read-${Math.abs(hash).toString(36)}`;
+}
+
+function clampDial(value) {
+  return Math.max(1, Math.min(9, value));
 }
 
 function rankDesigns(query, source = 'built-in') {
@@ -1042,8 +1668,8 @@ function pageRecipe(pageType) {
   return recipes[pageType] ?? recipes.landing;
 }
 
-function antiPatternsForBrief(pageType, template) {
-  const baseIds = [
+function antiPatternsForBrief(pageType, template, read = null) {
+  const ids = [
     'default-llm-indigo',
     'hardcoded-color',
     'generic-ai-gradient',
@@ -1052,11 +1678,36 @@ function antiPatternsForBrief(pageType, template) {
     'filler-copy',
     'missing-section-id',
   ];
-  const contextualIds = [];
-  if (['dashboard', 'settings', 'profile'].includes(pageType)) contextualIds.push('heavy-shadow', 'radius-drift');
-  if (['landing', 'pricing', 'chrome-extension-landing'].includes(pageType)) contextualIds.push('invented-metric', 'filler-copy');
-  if (template) contextualIds.push('missing-section-id');
-  const patterns = unique([...baseIds, ...contextualIds])
+
+  if (['landing', 'pricing', 'chrome-extension-landing'].includes(pageType)) {
+    ids.push(
+      'generic-cta',
+      'weak-proof-strategy',
+      'fake-logo-wall',
+      'marketing-buzzwords',
+      'visible-design-scaffold',
+    );
+  }
+  if (['dashboard', 'settings', 'profile'].includes(pageType)) ids.push('heavy-shadow', 'radius-drift', 'small-touch-target', 'clipped-overflow');
+  if (template) ids.push('missing-section-id', 'identical-card-grids', 'repeated-section-kicker');
+  if (template?.pagePreflight?.length) ids.push('generic-cta', 'weak-proof-strategy', 'visible-design-scaffold');
+
+  const readText = normalize([
+    read?.productType,
+    read?.register,
+    ...(read?.audience || []),
+    ...(read?.buyerAnxiety || []),
+    read?.proofStrategy?.mode,
+    read?.proofStrategy?.guidance,
+  ].filter(Boolean).join(' '));
+  if (read?.dials?.variance >= 6) ids.push('identical-card-grids', 'repeated-section-kicker', 'hero-eyebrow-chip', 'icon-tile-stack');
+  if (read?.dials?.density >= 7) ids.push('long-line-length', 'tiny-text', 'small-touch-target', 'clipped-overflow');
+  if (read?.proofStrategy?.mode === 'evidence-first') ids.push('weak-proof-strategy', 'fake-logo-wall', 'invented-metric', 'visible-design-scaffold');
+  if (/regulated|healthcare|clinical|medical|compliance|audit|security|finance|risk|安全|合规|审计|医疗|临床/.test(readText)) {
+    ids.push('visible-design-scaffold', 'copied-brand-claim', 'theme-drift', 'role-copy-too-generic', 'weak-proof-strategy');
+  }
+
+  const patterns = unique(ids)
     .map((id) => antiPatternById.get(id))
     .filter(Boolean);
   return patterns.length ? patterns : uiAntiPatterns.patterns || [];
@@ -1100,6 +1751,7 @@ function browserData(source = 'built-in') {
       disclaimer: design.disclaimer,
     })),
     templates: templateRecipes.templates || [],
+    templateIndex: templateIndex.templates || [],
   };
 }
 
@@ -1300,6 +1952,20 @@ function buildReportMarkdown(review) {
       ? review.gate.topFixes.map((fix) => `- ${fix}`)
       : ['- Do a rendered visual pass against DESIGN.md before shipping.']),
     '',
+    '## Vibe Gate 2.0 Synthesis',
+    '',
+    `Design Read execution: ${review.synthesis.designReadExecution.status}`,
+    ...review.synthesis.designReadExecution.evidence.map((item) => `- ${item}`),
+    '',
+    `Template recipe completion: ${review.synthesis.templateCompletion.status}`,
+    ...review.synthesis.templateCompletion.evidence.map((item) => `- ${item}`),
+    '',
+    `Buyer anxiety coverage: ${review.synthesis.buyerAnxietyCoverage.status}`,
+    ...review.synthesis.buyerAnxietyCoverage.evidence.map((item) => `- ${item}`),
+    '',
+    `Proof strategy credibility: ${review.synthesis.proofStrategyCredibility.status}`,
+    ...review.synthesis.proofStrategyCredibility.evidence.map((item) => `- ${item}`),
+    '',
     '## Good',
     ...(review.good.length ? review.good.map((item) => `- ${item}`) : ['- No strong DESIGN.md alignment signals were detected by the static checker.']),
   ];
@@ -1329,6 +1995,156 @@ function buildReportMarkdown(review) {
     review.designTokens.colors.slice(0, 8).forEach((token) => lines.push(`- ${token.name}: ${token.value}`));
   }
   return `${lines.join('\n')}\n`;
+}
+
+function buildCritiqueMarkdown(review) {
+  const lines = [
+    '# Vibe UI Critique',
+    '',
+    `Generated by Vibe UI ${registry.version}`,
+    '',
+    `Decision: ${review.gate.decision}`,
+    `Score: ${review.score}/10`,
+    `Files checked: ${review.files.length}`,
+    '',
+    '## Design Read',
+  ];
+  if (review.read) {
+    lines.push(`- Product type: ${review.read.productType}`);
+    lines.push(`- Audience: ${review.read.audience.join(', ')}`);
+    lines.push(`- Register: ${review.read.register}`);
+    lines.push(`- Dials: density ${review.read.dials.density}, variance ${review.read.dials.variance}, motion ${review.read.dials.motion}`);
+  } else {
+    lines.push('- No `.vibe-ui/brief-read.json` found. Run `node scripts/design.mjs read "<brief>"` first for stronger critique.');
+  }
+  lines.push('', '## Director Notes');
+  lines.push(...directorNotes(review).map((item) => `- ${item}`));
+  lines.push('', '## Deterministic Findings');
+  if (review.qaFindings.length) {
+    for (const finding of review.qaFindings) {
+      lines.push(`- ${finding.id}: ${finding.fix}`);
+    }
+  } else {
+    lines.push('- No Vibe Gate anti-patterns were detected by the static checker.');
+  }
+  lines.push('', '## Next Polish Prompt');
+  lines.push('```text');
+  lines.push(buildPolishPrompt(review));
+  lines.push('```');
+  return `${lines.join('\n')}\n`;
+}
+
+function buildPolishPrompt(review) {
+  const lines = [
+    'Polish this UI using Vibe Gate 2.0.',
+    '',
+    `Current decision: ${review.gate.decision}`,
+    `Score: ${review.score}/10`,
+  ];
+  if (review.read) {
+    lines.push('', 'Design Read to preserve:');
+    lines.push(`- Audience: ${review.read.audience.join(', ')}`);
+    lines.push(`- Register: ${review.read.register}`);
+    lines.push(`- Dials: density ${review.read.dials.density}, variance ${review.read.dials.variance}, motion ${review.read.dials.motion}`);
+    lines.push(`- Proof strategy: ${review.read.proofStrategy.mode} - ${review.read.proofStrategy.guidance}`);
+    lines.push('- Buyer anxiety:');
+    review.read.buyerAnxiety.slice(0, 4).forEach((item) => lines.push(`  - ${item}`));
+  }
+  lines.push('', 'Fix these issues first:');
+  if (review.qaFindings.length) {
+    review.qaFindings.slice(0, 8).forEach((finding) => lines.push(`- ${finding.id}: ${finding.fix}`));
+  } else {
+    lines.push('- No deterministic blockers; improve section specificity, proof clarity, and rendered polish without changing the DESIGN.md system.');
+  }
+  lines.push('', 'Constraints:');
+  lines.push('- Keep DESIGN.md tokens as the source of truth.');
+  lines.push('- Do not render Design Read, dials, or internal scaffold text in production UI.');
+  lines.push('- Do not invent metrics, customer logos, official affiliations, or screenshots.');
+  lines.push('- Preserve stable data-od-id hooks on top-level sections.');
+  return lines.join('\n');
+}
+
+function printCritiqueSummary(review) {
+  console.log('Vibe UI critique:\n');
+  console.log(`Decision: ${review.gate.decision}`);
+  console.log(`Score: ${review.score}/10`);
+  console.log('Director notes:');
+  directorNotes(review).forEach((item) => console.log(`- ${item}`));
+  console.log('\nTop deterministic findings:');
+  if (review.qaFindings.length) review.qaFindings.slice(0, 8).forEach((finding) => console.log(`- ${finding.id}: ${finding.fix}`));
+  else console.log('- No Vibe Gate anti-patterns were detected by the static checker.');
+}
+
+function directorNotes(review) {
+  const notes = [];
+  if (!review.read) {
+    notes.push('Run `read "<brief>"` before implementation so critique can judge the page against buyer anxiety and proof strategy.');
+  }
+  if (review.synthesis.designReadExecution.status !== 'Ready') {
+    notes.push('The page does not yet provide enough evidence that the Design Read shaped the visible product narrative.');
+  }
+  if (review.synthesis.proofStrategyCredibility.status !== 'Ready') {
+    notes.push('Strengthen proof with verified evidence, concrete product states, or neutral evidence categories.');
+  }
+  if (review.qaFindings.some((finding) => ['identical-card-grids', 'repeated-section-kicker', 'icon-tile-stack'].includes(finding.id))) {
+    notes.push('Vary section jobs and rhythm; keep grids only where comparison or scanning benefits from symmetry.');
+  }
+  if (review.gate.decision === 'Ready' && !notes.length) {
+    notes.push('The deterministic pass is clean; do a rendered visual pass for spacing, hierarchy, and mobile fit.');
+  }
+  if (!notes.length) notes.push('Address deterministic Vibe Gate findings before design handoff.');
+  return notes;
+}
+
+function buildSynthesis({ combined, read, contract, qaFindings }) {
+  const lower = combined.toLowerCase();
+  const designReadExecution = read
+    ? coverageCheck([
+      ...read.audience,
+      read.productType,
+      ...read.buyerAnxiety.flatMap((item) => importantTerms(item)),
+    ], lower, 'Design Read terms visible in implementation')
+    : { status: 'Missing', evidence: ['No `.vibe-ui/brief-read.json` found. Run `read "<brief>"` before `brief-check` for stronger synthesis.'] };
+  const templateSections = contract?.requiredSections || [];
+  const templateCompletion = templateSections.length
+    ? coverageCheck(templateSections.map((item) => importantTerms(item)[0]).filter(Boolean), lower, 'Template recipe section signals')
+    : { status: 'Unknown', evidence: ['No Vibe Gate contract with required sections found. Run `brief-check` before implementation.'] };
+  const buyerAnxietyCoverage = read?.buyerAnxiety?.length
+    ? coverageCheck(read.buyerAnxiety.flatMap((item) => importantTerms(item)).slice(0, 16), lower, 'Buyer anxiety terms')
+    : { status: 'Missing', evidence: ['No buyer anxiety context available.'] };
+  const proofSignals = read?.proofStrategy?.requiredSignals || [];
+  const proofStrategyCredibility = proofSignals.length
+    ? coverageCheck(proofSignals.flatMap((item) => importantTerms(item)), lower, 'Proof strategy signals')
+    : { status: 'Unknown', evidence: ['No proof strategy context available.'] };
+  if (qaFindings.some((finding) => ['invented-metric', 'fake-logo-wall', 'weak-proof-strategy'].includes(finding.id))) {
+    proofStrategyCredibility.status = 'Needs revision';
+    proofStrategyCredibility.evidence.push('Proof-related anti-patterns were detected.');
+  }
+  return {
+    designReadExecution,
+    templateCompletion,
+    buyerAnxietyCoverage,
+    proofStrategyCredibility,
+  };
+}
+
+function coverageCheck(terms, lowerText, label) {
+  const normalizedTerms = unique(terms.map((term) => normalize(term).trim()).filter((term) => term.length >= 3));
+  const hits = normalizedTerms.filter((term) => lowerText.includes(term));
+  const ratio = normalizedTerms.length ? hits.length / normalizedTerms.length : 0;
+  const status = ratio >= 0.35 || hits.length >= 4 ? 'Ready' : ratio >= 0.18 || hits.length >= 2 ? 'Needs revision' : 'Missing';
+  return {
+    status,
+    evidence: [
+      `${label}: ${hits.length}/${normalizedTerms.length} signals matched.`,
+      hits.length ? `Matched: ${hits.slice(0, 8).join(', ')}` : 'No strong matching signals found.',
+    ],
+  };
+}
+
+function importantTerms(text) {
+  const stop = new Set(['with', 'that', 'this', 'from', 'into', 'before', 'after', 'every', 'where', 'which', 'what', 'will', 'should', 'teams', 'users', 'page', 'section', 'product']);
+  return tokenize(text).filter((term) => term.length >= 4 && !stop.has(term)).slice(0, 6);
 }
 
 function normalizeDesignId(value) {
