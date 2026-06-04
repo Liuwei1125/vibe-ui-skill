@@ -636,7 +636,8 @@ test('repository publishing metadata and release scripts are ready for GitHub', 
   assert.match(gitignore, /^node_modules\/$/m);
   assert.match(gitignore, /^\.DS_Store$/m);
   assert.match(gitignore, /^\.vibe-ui\/$/m);
-  assert.match(gitignore, /^DESIGN\.generated\.md$/m);
+  assert.match(gitignore, /^\/DESIGN\.md$/m);
+  assert.match(gitignore, /^\/DESIGN\.generated\.md$/m);
 });
 
 test('publish package plans include public repository docs and exclude generated artifacts', () => {

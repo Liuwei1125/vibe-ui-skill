@@ -3,5 +3,5 @@ node_modules/
 .DS_Store
 *.log
 .vibe-ui/
-DESIGN.md
-DESIGN.generated.md
+/DESIGN.md
+/DESIGN.generated.md
